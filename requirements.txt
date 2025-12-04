@@ -54,3 +54,4 @@ mypy>=1.6.0
 # Optional: Data Versioning
 # dvc>=3.38.0
 
+pytest-asyncio
