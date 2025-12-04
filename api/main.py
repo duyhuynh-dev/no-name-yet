@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Optional
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -34,6 +34,7 @@ from api.schemas import (
     ActionType,
 )
 from api.model_service import ModelService
+from api.websocket import handle_websocket, manager
 
 # Configure logging
 logging.basicConfig(
@@ -303,6 +304,18 @@ async def list_symbols():
             symbols.add(parts[0])
     
     return {"symbols": sorted(symbols)}
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time updates."""
+    await handle_websocket(websocket)
+
+
+@app.get("/ws/stats", tags=["WebSocket"])
+async def websocket_stats():
+    """Get WebSocket connection statistics."""
+    return manager.get_stats()
 
 
 @app.exception_handler(Exception)
