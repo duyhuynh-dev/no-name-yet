@@ -1,0 +1,206 @@
+# Docker Compose for HFT Trading Platform
+# Usage: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # ===================
+  # Core Services
+  # ===================
+  
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.api
+    container_name: hft-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hft
+    volumes:
+      - ../../models:/app/models:ro
+      - model-cache:/app/.cache
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+    networks:
+      - hft-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.worker
+    container_name: hft-worker
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hft
+    volumes:
+      - ../../data:/app/data
+      - ../../models:/app/models
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+    networks:
+      - hft-network
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.frontend
+    container_name: hft-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://api:8000
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - hft-network
+
+  # ===================
+  # Data Infrastructure
+  # ===================
+  
+  redis:
+    image: redis:7-alpine
+    container_name: hft-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - hft-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: hft-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=hft
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    networks:
+      - hft-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: hft-timescale
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=hft_timeseries
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - hft-network
+
+  # ===================
+  # Monitoring Stack
+  # ===================
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: hft-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - hft-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hft-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - hft-network
+
+  # ===================
+  # Message Queue
+  # ===================
+  
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: hft-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=hft
+      - RABBITMQ_DEFAULT_PASS=hft123
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    restart: unless-stopped
+    networks:
+      - hft-network
+
+# ===================
+# Volumes
+# ===================
+volumes:
+  redis-data:
+  postgres-data:
+  timescale-data:
+  prometheus-data:
+  grafana-data:
+  rabbitmq-data:
+  model-cache:
+
+# ===================
+# Networks
+# ===================
+networks:
+  hft-network:
+    driver: bridge
+

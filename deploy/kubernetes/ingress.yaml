@@ -1,0 +1,80 @@
+---
+# Ingress for HFT Platform
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hft-ingress
+  namespace: hft-trading
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Rate limiting
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-connections: "50"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - hft.example.com
+        - api.hft.example.com
+      secretName: hft-tls-secret
+  rules:
+    # Frontend
+    - host: hft.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hft-frontend-service
+                port:
+                  number: 80
+    
+    # API
+    - host: api.hft.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hft-api-service
+                port:
+                  number: 80
+    
+    # WebSocket for real-time data
+    - host: ws.hft.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hft-api-service
+                port:
+                  number: 80
+
+---
+# Certificate (if using cert-manager)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: hft-certificate
+  namespace: hft-trading
+spec:
+  secretName: hft-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: hft.example.com
+  dnsNames:
+    - hft.example.com
+    - api.hft.example.com
+    - ws.hft.example.com
+

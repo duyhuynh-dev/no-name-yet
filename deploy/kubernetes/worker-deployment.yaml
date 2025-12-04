@@ -1,0 +1,143 @@
+---
+# Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hft-worker
+  namespace: hft-trading
+  labels:
+    app: hft-worker
+    component: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hft-worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: hft-worker
+        component: worker
+    spec:
+      serviceAccountName: hft-service-account
+      
+      containers:
+        - name: worker
+          image: ${REGISTRY}/hft-worker:${VERSION}
+          imagePullPolicy: Always
+          
+          envFrom:
+            - configMapRef:
+                name: hft-config
+            - secretRef:
+                name: hft-secrets
+          
+          env:
+            - name: WORKER_TYPE
+              value: "trading"
+          
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+          
+          volumeMounts:
+            - name: model-volume
+              mountPath: /app/models
+            - name: data-volume
+              mountPath: /app/data
+      
+      volumes:
+        - name: model-volume
+          persistentVolumeClaim:
+            claimName: model-pvc
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-pvc
+      
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: hft-worker
+                topologyKey: kubernetes.io/hostname
+
+---
+# Training Worker (for model training jobs)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hft-trainer
+  namespace: hft-trading
+  labels:
+    app: hft-trainer
+    component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hft-trainer
+  template:
+    metadata:
+      labels:
+        app: hft-trainer
+        component: worker
+    spec:
+      containers:
+        - name: trainer
+          image: ${REGISTRY}/hft-worker:${VERSION}
+          imagePullPolicy: Always
+          
+          envFrom:
+            - configMapRef:
+                name: hft-config
+            - secretRef:
+                name: hft-secrets
+          
+          env:
+            - name: WORKER_TYPE
+              value: "training"
+          
+          resources:
+            requests:
+              cpu: "2"
+              memory: "8Gi"
+              # nvidia.com/gpu: "1"  # Uncomment for GPU
+            limits:
+              cpu: "8"
+              memory: "32Gi"
+              # nvidia.com/gpu: "1"
+          
+          volumeMounts:
+            - name: model-volume
+              mountPath: /app/models
+            - name: data-volume
+              mountPath: /app/data
+      
+      volumes:
+        - name: model-volume
+          persistentVolumeClaim:
+            claimName: model-pvc
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-pvc
+      
+      # Prefer GPU nodes if available
+      # nodeSelector:
+      #   gpu: "true"
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+

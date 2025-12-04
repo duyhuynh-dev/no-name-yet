@@ -1,0 +1,45 @@
+---
+# Namespace for HFT Trading Platform
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hft-trading
+  labels:
+    name: hft-trading
+    environment: production
+
+---
+# Resource Quota
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: hft-quota
+  namespace: hft-trading
+spec:
+  hard:
+    requests.cpu: "20"
+    requests.memory: 40Gi
+    limits.cpu: "40"
+    limits.memory: 80Gi
+    pods: "50"
+    services: "20"
+    secrets: "50"
+    configmaps: "50"
+
+---
+# Limit Range
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: hft-limits
+  namespace: hft-trading
+spec:
+  limits:
+    - default:
+        cpu: "1"
+        memory: 2Gi
+      defaultRequest:
+        cpu: "200m"
+        memory: 512Mi
+      type: Container
+

@@ -1,0 +1,49 @@
+---
+# Application ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hft-config
+  namespace: hft-trading
+data:
+  # Environment
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  
+  # API Configuration
+  API_HOST: "0.0.0.0"
+  API_PORT: "8000"
+  API_WORKERS: "4"
+  
+  # Database
+  DATABASE_HOST: "postgres-service"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "hft"
+  
+  # Redis
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  
+  # Trading Configuration
+  TRADING_MODE: "paper"  # paper or live
+  MAX_POSITION_PCT: "0.10"
+  MAX_LEVERAGE: "2.0"
+  
+  # Model Configuration
+  MODEL_PATH: "/app/models"
+  MODEL_UPDATE_INTERVAL: "3600"
+
+---
+# Feature Flags
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hft-features
+  namespace: hft-trading
+data:
+  ENABLE_LIVE_TRADING: "false"
+  ENABLE_CRYPTO: "true"
+  ENABLE_OPTIONS: "false"
+  ENABLE_MULTI_AGENT: "true"
+  ENABLE_SENTIMENT: "true"
+

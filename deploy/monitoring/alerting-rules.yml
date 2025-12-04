@@ -1,0 +1,181 @@
+# Alerting Rules for HFT Platform
+
+groups:
+  # ===================
+  # System Alerts
+  # ===================
+  - name: system
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for more than 5 minutes"
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85%"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|squashfs"} / node_filesystem_size_bytes) * 100 < 15
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk space is below 15%"
+
+  # ===================
+  # API Alerts
+  # ===================
+  - name: api
+    rules:
+      - alert: APIHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="hft-api"}[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency"
+          description: "95th percentile latency is above 500ms"
+
+      - alert: APIHighErrorRate
+        expr: sum(rate(http_requests_total{job="hft-api",status=~"5.."}[5m])) / sum(rate(http_requests_total{job="hft-api"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High API error rate"
+          description: "Error rate is above 5%"
+
+      - alert: APIDown
+        expr: up{job="hft-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API service is down"
+          description: "The HFT API service is not responding"
+
+  # ===================
+  # Trading Alerts
+  # ===================
+  - name: trading
+    rules:
+      - alert: HighDrawdown
+        expr: hft_portfolio_drawdown > 0.10
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High portfolio drawdown"
+          description: "Drawdown has exceeded 10%"
+
+      - alert: CircuitBreakerTriggered
+        expr: hft_circuit_breaker_state == 1
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Circuit breaker triggered"
+          description: "Trading has been halted by circuit breaker"
+
+      - alert: LowWinRate
+        expr: hft_win_rate < 0.40
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low trading win rate"
+          description: "Win rate has dropped below 40%"
+
+      - alert: HighPositionConcentration
+        expr: max(hft_position_weight) > 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High position concentration"
+          description: "Single position exceeds 15% of portfolio"
+
+      - alert: ExcessiveLeverage
+        expr: hft_portfolio_leverage > 2.0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Excessive leverage"
+          description: "Portfolio leverage exceeds 2x"
+
+  # ===================
+  # Database Alerts
+  # ===================
+  - name: database
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is not responding"
+
+      - alert: PostgresHighConnections
+        expr: pg_stat_activity_count / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL high connections"
+          description: "Connection usage is above 80%"
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache is not responding"
+
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is above 90%"
+
+  # ===================
+  # Agent Alerts
+  # ===================
+  - name: agents
+    rules:
+      - alert: AgentPerformanceDegradation
+        expr: hft_agent_sharpe_ratio < 0.5
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent performance degradation"
+          description: "Agent {{ $labels.agent_id }} Sharpe ratio below 0.5"
+
+      - alert: AgentInactive
+        expr: time() - hft_agent_last_signal_timestamp > 3600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent inactive"
+          description: "Agent {{ $labels.agent_id }} has not generated signals for 1 hour"
+
