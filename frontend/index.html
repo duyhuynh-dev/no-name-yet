@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HFT RL Trading Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">◈</span>
+                <h1>HFT<span class="accent">RL</span></h1>
+            </div>
+            <div class="header-status">
+                <div class="status-indicator" id="apiStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Connecting...</span>
+                </div>
+                <div class="latency-badge" id="latencyBadge">
+                    <span class="latency-value">--</span>ms
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Panel - Charts -->
+            <section class="charts-panel">
+                <!-- Price Chart -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h2>Price Action & Signals</h2>
+                        <div class="chart-legend">
+                            <span class="legend-item buy">▲ Buy</span>
+                            <span class="legend-item sell">▼ Sell</span>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Equity Curve -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h2>Portfolio Equity</h2>
+                        <div class="equity-change" id="equityChange">+0.00%</div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="equityChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel - Controls & Metrics -->
+            <aside class="controls-panel">
+                <!-- Prediction Panel -->
+                <div class="panel prediction-panel">
+                    <h3>Live Prediction</h3>
+                    <div class="prediction-result" id="predictionResult">
+                        <div class="action-display hold" id="actionDisplay">
+                            <span class="action-icon">◯</span>
+                            <span class="action-text">HOLD</span>
+                        </div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" id="confidenceFill" style="width: 50%"></div>
+                        </div>
+                        <div class="confidence-label">
+                            Confidence: <span id="confidenceValue">50%</span>
+                        </div>
+                    </div>
+                    <div class="action-probabilities" id="actionProbs">
+                        <div class="prob-item">
+                            <span class="prob-label">Hold</span>
+                            <div class="prob-bar"><div class="prob-fill hold" style="width: 33%"></div></div>
+                            <span class="prob-value">33%</span>
+                        </div>
+                        <div class="prob-item">
+                            <span class="prob-label">Buy</span>
+                            <div class="prob-bar"><div class="prob-fill buy" style="width: 33%"></div></div>
+                            <span class="prob-value">33%</span>
+                        </div>
+                        <div class="prob-item">
+                            <span class="prob-label">Sell</span>
+                            <div class="prob-bar"><div class="prob-fill sell" style="width: 33%"></div></div>
+                            <span class="prob-value">33%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backtest Controls -->
+                <div class="panel backtest-panel">
+                    <h3>Backtest</h3>
+                    <div class="form-group">
+                        <label for="symbolInput">Symbol</label>
+                        <select id="symbolInput">
+                            <option value="SPY">SPY</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="balanceInput">Initial Balance</label>
+                        <input type="number" id="balanceInput" value="10000" min="1000" step="1000">
+                    </div>
+                    <button class="btn btn-primary" id="runBacktestBtn">
+                        <span class="btn-icon">▶</span>
+                        Run Backtest
+                    </button>
+                </div>
+
+                <!-- Performance Metrics -->
+                <div class="panel metrics-panel">
+                    <h3>Performance Metrics</h3>
+                    <div class="metrics-grid">
+                        <div class="metric">
+                            <span class="metric-label">Total Return</span>
+                            <span class="metric-value positive" id="totalReturn">+0.00%</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Sharpe Ratio</span>
+                            <span class="metric-value" id="sharpeRatio">0.00</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Max Drawdown</span>
+                            <span class="metric-value negative" id="maxDrawdown">0.00%</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Win Rate</span>
+                            <span class="metric-value" id="winRate">0.0%</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Total Trades</span>
+                            <span class="metric-value" id="totalTrades">0</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Final Balance</span>
+                            <span class="metric-value" id="finalBalance">$10,000</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trade History -->
+                <div class="panel trades-panel">
+                    <h3>Recent Trades</h3>
+                    <div class="trades-list" id="tradesList">
+                        <div class="no-trades">No trades yet</div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <span>HFT RL Trading Simulator</span>
+            <span class="separator">•</span>
+            <span>PPO Agent</span>
+            <span class="separator">•</span>
+            <span id="modelInfo">Model: Loading...</span>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+

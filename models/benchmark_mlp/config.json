@@ -1,0 +1,19 @@
+{
+  "policy": "MlpPolicy",
+  "extractor_type": "mlp",
+  "learning_rate": 0.0003,
+  "n_steps": 256,
+  "batch_size": 64,
+  "n_epochs": 10,
+  "gamma": 0.99,
+  "gae_lambda": 0.95,
+  "clip_range": 0.2,
+  "ent_coef": 0.01,
+  "vf_coef": 0.5,
+  "features_dim": 64,
+  "lstm_hidden_size": 128,
+  "lstm_num_layers": 2,
+  "window_size": 30,
+  "n_features": 27,
+  "device": "cpu"
+}
